@@ -140,38 +140,47 @@ video::-webkit-media-controls-enclosure {
     const playPauseBtn = document.getElementById("playPauseBtn");
     const muteBtn = document.getElementById("muteBtn");
 
-    let isPlaying = true; // Track play state, initially playing due to autoplay
-    let isMuted = true;   // Track mute state, initially muted due to muted attribute
+    // Initialize button icon states based on video's initial attributes
+    function updatePlayPauseIcon() {
+        playPauseBtn.querySelector('i').className = video.paused || video.ended ? "fas fa-play" : "fas fa-pause";
+    }
 
-    // Initialize button icon states (important for first load)
-    playPauseBtn.querySelector('i').className = isPlaying ? "fas fa-pause" : "fas fa-play";
-    muteBtn.querySelector('i').className = isMuted ? "fas fa-volume-mute" : "fas fa-volume-up";
+    function updateMuteIcon() {
+        muteBtn.querySelector('i').className = video.muted ? "fas fa-volume-mute" : "fas fa-volume-up";
+    }
+
+    // Call once on load to set initial state
+    updatePlayPauseIcon();
+    updateMuteIcon();
 
 
     if (mpegts.getFeatureList().mseLivePlayback) {
         const player = mpegts.createPlayer({
             type: "mpegts",
             isLive: true,
-            url: "http://rgkkw.live:80/live/1Aoen7elp5/IgMJ60tmAa/130714.ts"
+            url: "https://1nyaler.streamhostingcdn.top/stream/32/index.m3u8" // Updated URL
         });
 
         player.attachMediaElement(video);
         player.load();
-        player.play();
+        player.play(); // Attempt to play
 
         player.on(mpegts.Events.ERROR, function (errorType, errorDetail, errorInfo) {
             console.error('MPEGTS Player Error:', errorType, errorDetail, errorInfo);
-            video.src = "";
-            video.poster = "error_thumbnail.jpg"; // You'd need to create this image
-            video.controls = true;
+            video.src = ""; // Clear video source
+            // You'd need to create this image or use a default error icon
+            video.poster = "https://via.placeholder.com/1280x720.png?text=Streaming+Error";
+            // Add a temporary message overlay or update UI to show the error
             alert("Streaming error! Please try again later.");
         });
 
     } else {
         console.error('MPEG-TS playback not supported on this browser.');
-        video.src = "fallback-video.mp4"; // You'd need to provide this video
-        video.controls = true;
-        alert("Your browser does not support live MPEG-TS streaming. Please try a different browser.");
+        // Fallback to direct HLS if mpegts.js isn't supported for .ts streams
+        // Modern browsers can often play .m3u8 directly, but it won't be MPEG-TS via mpegts.js
+        video.src = "https://1nyaler.streamhostingcdn.top/stream/32/index.m3u8"; // Use the HLS URL directly
+        video.controls = true; // Show native controls for fallback
+        alert("Your browser does not fully support live MPEG-TS streaming. Attempting direct HLS playback.");
     }
 
     // Play/Pause button logic
@@ -181,27 +190,19 @@ video::-webkit-media-controls-enclosure {
         } else {
             video.pause();
         }
+        updatePlayPauseIcon(); // Update icon immediately after click
     });
 
     // Mute/Unmute button logic
     muteBtn.addEventListener('click', () => {
         video.muted = !video.muted;
+        updateMuteIcon(); // Update icon immediately after click
     });
 
-    // Handle video state changes to update buttons
-    video.addEventListener('play', () => {
-        playPauseBtn.querySelector('i').className = "fas fa-pause";
-    });
-    video.addEventListener('pause', () => {
-        playPauseBtn.querySelector('i').className = "fas fa-play";
-    });
-    video.addEventListener('volumechange', () => {
-        if (video.muted) {
-            muteBtn.querySelector('i').className = "fas fa-volume-mute";
-        } else {
-            muteBtn.querySelector('i').className = "fas fa-volume-up";
-        }
-    });
+    // Handle video state changes to update buttons (important for external triggers/autoplay)
+    video.addEventListener('play', updatePlayPauseIcon);
+    video.addEventListener('pause', updatePlayPauseIcon);
+    video.addEventListener('volumechange', updateMuteIcon);
 
 </script>
 
