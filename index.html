@@ -1,210 +1,360 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PZZ TV Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PZZ TV Player</title>
 
-<script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
-<!-- Font Awesome for premium icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- HLS.js for HLS playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for premium icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
+    <!-- Firebase SDK (Add these lines) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-<style>
-/* General Reset & Base Styles */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
-}
+    <style>
+        /* General Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
 
-body {
-    background: #000; /* Pure black background for minimalist player */
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden; /* Prevent scroll */
-}
+        body {
+            background: #000; /* Pure black background for minimalist player */
+            min-height: 100vh;
+            display: flex; /* Use flexbox to center content */
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Prevent scroll */
+        }
 
-/* Player Container - Centered and responsive */
-.player-container {
-    position: relative;
-    width: 100%;
-    max-width: 100vw; /* Ensure it doesn't exceed viewport width */
-    max-height: 100vh; /* Ensure it doesn't exceed viewport height */
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+        /* Player Container - Centered and responsive */
+        .player-container {
+            position: relative;
+            width: 100%;
+            max-width: 100vw; /* Ensure it doesn't exceed viewport width */
+            max-height: 100vh; /* Ensure it doesn't exceed viewport height */
+            overflow: hidden;
+            display: flex; /* This needs to be 'flex' when visible to center the video */
+            justify-content: center;
+            align-items: center;
+            background: #000; /* Ensure black background for player area */
+        }
 
-video {
-    width: 100%;
-    height: auto; /* Maintain aspect ratio */
-    max-height: 100vh;
-    display: block;
-    background: #000;
-    object-fit: contain; /* Ensure video fits without cropping */
-}
+        video {
+            width: 100%;
+            height: auto; /* Maintain aspect ratio */
+            max-height: 100vh;
+            display: block;
+            background: #000;
+            object-fit: contain; /* CRUCIAL: Ensure video fits without cropping, preventing zoom */
+        }
 
-/* Controls Overlay */
-.controls-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    padding: 15px 20px;
-    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%); /* Fading gradient background */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    opacity: 0; /* Hidden by default */
-    transition: opacity 0.3s ease; /* Smooth transition */
-    pointer-events: none; /* Allow clicks to pass through when hidden */
-}
+        /* Controls Overlay */
+        .controls-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%); /* Fading gradient background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.3s ease; /* Smooth transition */
+            pointer-events: none; /* Allow clicks to pass through when hidden */
+        }
 
-.player-container:hover .controls-overlay {
-    opacity: 1; /* Show on hover */
-    pointer-events: auto; /* Enable clicks when visible */
-}
+        .player-container:hover .controls-overlay {
+            opacity: 1; /* Show on hover */
+            pointer-events: auto; /* Enable clicks when visible */
+        }
 
-/* Premium Button Styling */
-.control-button {
-    background: rgba(255, 255, 255, 0.15); /* Slightly more transparent */
-    border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
-    border-radius: 50%;
-    width: 60px; /* Slightly larger buttons */
-    height: 60px;
-    color: #00ffff; /* Cyan color for icons */
-    font-size: 26px; /* Larger icon size */
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    backdrop-filter: blur(8px); /* Stronger frosty effect */
-    box-shadow: 0 4px 15px rgba(0, 255, 255, 0.2); /* Subtle cyan glow */
-}
+        /* Premium Button Styling */
+        .control-button {
+            background: rgba(255, 255, 255, 0.15); /* Slightly more transparent */
+            border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
+            border-radius: 50%;
+            width: 60px; /* Slightly larger buttons */
+            height: 60px;
+            color: #00ffff; /* Cyan color for icons */
+            font-size: 26px; /* Larger icon size */
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            backdrop-filter: blur(8px); /* Stronger frosty effect */
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.2); /* Subtle cyan glow */
+        }
 
-.control-button:hover {
-    background: rgba(0, 255, 255, 0.3); /* Cyan highlight on hover */
-    transform: scale(1.1); /* Slightly more pronounced hover effect */
-    box-shadow: 0 6px 20px rgba(0, 255, 255, 0.4); /* Stronger glow on hover */
-    color: #fff; /* White icon on hover */
-}
+        .control-button:hover {
+            background: rgba(0, 255, 255, 0.3); /* Cyan highlight on hover */
+            transform: scale(1.1); /* Slightly more pronounced hover effect */
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.4); /* Stronger glow on hover */
+            color: #fff; /* White icon on hover */
+        }
 
-.control-button:active {
-    transform: scale(0.95);
-    background: rgba(0, 255, 255, 0.5); /* More solid cyan on click */
-}
+        .control-button:active {
+            transform: scale(0.95);
+            background: rgba(0, 255, 255, 0.5); /* More solid cyan on click */
+        }
 
-/* Hide fallback video controls for a cleaner look if JS works */
-video::-webkit-media-controls {
-  display: none !important;
-}
-video::-webkit-media-controls-enclosure {
-  display: none !important;
-}
+        /* Hide fallback video controls for a cleaner look if JS works */
+        video::-webkit-media-controls {
+            display: none !important;
+        }
+        video::-webkit-media-controls-enclosure {
+            display: none !important;
+        }
 
-</style>
+        /* Authentication Container specific styles */
+        #auth-container {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
+            max-width: 400px;
+            width: 90%;
+            color: #fff;
+        }
+
+        #auth-container h2 {
+            margin-bottom: 25px;
+            color: #00ffff;
+            font-size: 1.8em;
+        }
+
+        #auth-container input {
+            width: calc(100% - 20px);
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #00ffff;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1.1em;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        #auth-container input:focus {
+            border-color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        #auth-container button {
+            background: #00ffff;
+            color: #000;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        #auth-container button:hover {
+            background: #00e6e6;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.4);
+        }
+
+        #auth-container #error-message {
+            color: #ff6666;
+            margin-top: 15px;
+            font-size: 1em;
+            height: 20px; /* Reserve space */
+        }
+
+        /* Initially hide the player, but it will be set to 'flex' on successful auth */
+        .player-container {
+            display: none;
+            position: relative; /* Ensure it's positioned for the overlay */
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="player-container">
-    <video
-        id="videoElement"
-        autoplay
-        playsinline
-        muted>
-    </video>
-
-    <div class="controls-overlay">
-        <!-- Play/Pause Button with Font Awesome Icon -->
-        <button id="playPauseBtn" class="control-button">
-            <i class="fas fa-pause"></i> <!-- Initial icon is pause as autoplay is true -->
-        </button>
-        <!-- Mute/Unmute Button with Font Awesome Icon -->
-        <button id="muteBtn" class="control-button">
-            <i class="fas fa-volume-mute"></i> <!-- Initial icon is mute as video is muted -->
-        </button>
+    <div id="auth-container">
+        <h2>PZZ TV Access</h2>
+        <input type="text" id="phoneNumberInput" placeholder="Enter your phone number">
+        <input type="password" id="pinInput" placeholder="Enter your PIN">
+        <button id="accessBtn">Access TV</button>
+        <div id="error-message"></div>
     </div>
-</div>
 
-<script>
-    const video = document.getElementById("videoElement");
-    const playPauseBtn = document.getElementById("playPauseBtn");
-    const muteBtn = document.getElementById("muteBtn");
+    <div class="player-container">
+        <video id="videoElement" autoplay playsinline muted></video>
 
-    // Initialize button icon states based on video's initial attributes
-    function updatePlayPauseIcon() {
-        playPauseBtn.querySelector('i').className = video.paused || video.ended ? "fas fa-play" : "fas fa-pause";
-    }
+        <div class="controls-overlay">
+            <button id="playPauseBtn" class="control-button">
+                <i class="fas fa-pause"></i>
+            </button>
+            <button id="muteBtn" class="control-button">
+                <i class="fas fa-volume-mute"></i>
+            </button>
+        </div>
+    </div>
 
-    function updateMuteIcon() {
-        muteBtn.querySelector('i').className = video.muted ? "fas fa-volume-mute" : "fas fa-volume-up";
-    }
+    <script>
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyAECcEYd3wK5mDwwiS7jlmK1pQAvYX1aEQ",
+            authDomain: "birthday-cec87.firebaseapp.com",
+            projectId: "birthday-cec87",
+            storageBucket: "birthday-cec87.firebasestorage.app",
+            messagingSenderId: "373680627577",
+            appId: "1:373680627577:web:2d8bc3df5fbb421ea1d9a8",
+            measurementId: "G-BXZSTT3V7W"
+        };
 
-    // Call once on load to set initial state
-    updatePlayPauseIcon();
-    updateMuteIcon();
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
+        const authContainer = document.getElementById("auth-container");
+        const phoneNumberInput = document.getElementById("phoneNumberInput");
+        const pinInput = document.getElementById("pinInput");
+        const accessBtn = document.getElementById("accessBtn");
+        const errorMessageDiv = document.getElementById("error-message");
+        const playerContainer = document.querySelector(".player-container");
 
-    if (mpegts.getFeatureList().mseLivePlayback) {
-        const player = mpegts.createPlayer({
-            type: "mpegts",
-            isLive: true,
-            url: "https://1nyaler.streamhostingcdn.top/stream/32/index.m3u8" // Updated URL
+        // Authentication logic
+        accessBtn.addEventListener('click', async () => {
+            const phoneNumber = phoneNumberInput.value.trim();
+            const pin = pinInput.value.trim();
+
+            if (!phoneNumber || !pin) {
+                errorMessageDiv.textContent = "Please enter both number and PIN.";
+                return;
+            }
+
+            errorMessageDiv.textContent = ""; // Clear previous errors
+            accessBtn.disabled = true; // Prevent multiple clicks
+            accessBtn.textContent = "Verifying...";
+
+            try {
+                // Query Firestore for the user
+                const usersRef = db.collection("users");
+                const snapshot = await usersRef
+                    .where("phoneNumber", "==", phoneNumber)
+                    .where("pin", "==", pin)
+                    .get();
+
+                if (!snapshot.empty) {
+                    // User found and credentials match
+                    authContainer.style.display = "none"; // Hide auth form
+                    playerContainer.style.display = "flex"; // Show video player with flex to center content
+                    initializeVideoPlayer(); // Initialize the video player
+                } else {
+                    errorMessageDiv.textContent = "Invalid phone number or PIN.";
+                }
+            } catch (error) {
+                console.error("Firebase authentication error:", error);
+                errorMessageDiv.textContent = "An error occurred during verification. Please try again.";
+            } finally {
+                accessBtn.disabled = false;
+                accessBtn.textContent = "Access TV";
+            }
         });
 
-        player.attachMediaElement(video);
-        player.load();
-        player.play(); // Attempt to play
+        // Wrap your existing HLS player initialization logic in a function
+        function initializeVideoPlayer() {
+            const video = document.getElementById("videoElement");
+            const playPauseBtn = document.getElementById("playPauseBtn");
+            const muteBtn = document.getElementById("muteBtn");
+            const streamUrl = "https://dfr80qz435crc.cloudfront.net/MNOP/Amagi/Caze/Caze_TV_BR/1080p-vtt/index.m3u8";
 
-        player.on(mpegts.Events.ERROR, function (errorType, errorDetail, errorInfo) {
-            console.error('MPEGTS Player Error:', errorType, errorDetail, errorInfo);
-            video.src = ""; // Clear video source
-            // You'd need to create this image or use a default error icon
-            video.poster = "https://via.placeholder.com/1280x720.png?text=Streaming+Error";
-            // Add a temporary message overlay or update UI to show the error
-            alert("Streaming error! Please try again later.");
-        });
+            // Initialize button icon states based on video's initial attributes
+            function updatePlayPauseIcon() {
+                playPauseBtn.querySelector('i').className = video.paused || video.ended ? "fas fa-play" : "fas fa-pause";
+            }
 
-    } else {
-        console.error('MPEG-TS playback not supported on this browser.');
-        // Fallback to direct HLS if mpegts.js isn't supported for .ts streams
-        // Modern browsers can often play .m3u8 directly, but it won't be MPEG-TS via mpegts.js
-        video.src = "https://1nyaler.streamhostingcdn.top/stream/32/index.m3u8"; // Use the HLS URL directly
-        video.controls = true; // Show native controls for fallback
-        alert("Your browser does not fully support live MPEG-TS streaming. Attempting direct HLS playback.");
-    }
+            function updateMuteIcon() {
+                muteBtn.querySelector('i').className = video.muted ? "fas fa-volume-mute" : "fas fa-volume-up";
+            }
 
-    // Play/Pause button logic
-    playPauseBtn.addEventListener('click', () => {
-        if (video.paused || video.ended) {
-            video.play();
-        } else {
-            video.pause();
+            // Call once on load to set initial state (now called after successful auth)
+            updatePlayPauseIcon();
+            updateMuteIcon();
+
+
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error('HLS.js Error:', data.type, data.details, data.fatal ? '(FATAL)' : '');
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log('fatal network error encountered, try to recover');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log('fatal media error encountered, try to recover');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.error('Could not recover from HLS.js fatal error. Attempting native fallback.');
+                                video.src = streamUrl; // Fallback to native HLS playback
+                                video.controls = true; // Show native controls for fallback
+                                alert("Streaming error! Trying native browser playback. Check console for details.");
+                                break;
+                        }
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = streamUrl;
+                video.controls = true; // Show native controls for native HLS
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                });
+                alert("Using native browser HLS playback.");
+            } else {
+                video.src = "";
+                video.poster = "https://via.placeholder.com/1280x720.png?text=HLS+Not+Supported";
+                alert("Your browser does not support HLS streaming.");
+            }
+
+            // Play/Pause button logic
+            playPauseBtn.addEventListener('click', () => {
+                if (video.paused || video.ended) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+                updatePlayPauseIcon();
+            });
+
+            // Mute/Unmute button logic
+            muteBtn.addEventListener('click', () => {
+                video.muted = !video.muted;
+                updateMuteIcon();
+            });
+
+            // Handle video state changes to update buttons
+            video.addEventListener('play', updatePlayPauseIcon);
+            video.addEventListener('pause', updatePlayPauseIcon);
+            video.addEventListener('volumechange', updateMuteIcon);
         }
-        updatePlayPauseIcon(); // Update icon immediately after click
-    });
 
-    // Mute/Unmute button logic
-    muteBtn.addEventListener('click', () => {
-        video.muted = !video.muted;
-        updateMuteIcon(); // Update icon immediately after click
-    });
-
-    // Handle video state changes to update buttons (important for external triggers/autoplay)
-    video.addEventListener('play', updatePlayPauseIcon);
-    video.addEventListener('pause', updatePlayPauseIcon);
-    video.addEventListener('volumechange', updateMuteIcon);
-
-</script>
+        // The video player is initially hidden and will be shown/initialized only after successful authentication.
+    </script>
 
 </body>
 </html>
